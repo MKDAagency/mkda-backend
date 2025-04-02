@@ -1,37 +1,30 @@
 const { google } = require('googleapis');
 
-// Scopes richiesti per Google Calendar
-const SCOPES = ['https://www.googleapis.com/auth/calendar'];
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GCAL_CLIENT_ID,
+  process.env.GCAL_CLIENT_SECRET,
+  process.env.GCAL_REDIRECT_URI
+);
 
-function authorize() {
-  const client_id = process.env.GCAL_CLIENT_ID;
-  const client_secret = process.env.GCAL_CLIENT_SECRET;
-  const redirect_uri = process.env.GCAL_REDIRECT_URI;
+const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
-  // Il token JSON deve essere salvato in una variabile d'ambiente, es. process.env.GCAL_TOKEN
-  const token = process.env.GCAL_TOKEN;
-
-  if (!client_id || !client_secret || !redirect_uri || !token) {
-    console.error('❌ Variabili d’ambiente mancanti o incomplete.');
-    return null;
-  }
-
-  const oAuth2Client = new google.auth.OAuth2(
-    client_id,
-    client_secret,
-    redirect_uri
-  );
-
-  try {
-    oAuth2Client.setCredentials(JSON.parse(token));
-  } catch (err) {
-    console.error('❌ Errore nel parsing del token:', err.message);
-    return null;
-  }
-
-  return oAuth2Client;
+async function getGoogleAuthUrl() {
+  const url = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: 'https://www.googleapis.com/auth/calendar',
+  });
+  return url;
 }
 
-module.exports = {
-  authorize
-};
+async function getTokensFromCode(code) {
+  try {
+    const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+    return tokens;
+  } catch (error) {
+    console.error('Errore durante l\'ottenimento del token:', error);
+    throw error;
+  }
+}
+
+module.exports = { getGoogleAuthUrl, getTokensFromCode };
