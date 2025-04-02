@@ -1,42 +1,35 @@
+const fs = require('fs');
+const path = require('path');
 const { google } = require('googleapis');
-require('dotenv').config();
 
-// Crea un client OAuth2 con le credenziali fornite
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GCAL_CLIENT_ID,
-  process.env.GCAL_CLIENT_SECRET,
-  process.env.GCAL_REDIRECT_URI
-);
+// Percorso al file JSON delle credenziali
+const CREDENTIALS_PATH = path.join(__dirname, '../../../client_secret_598314274371-j6krdicov4q4v76bd4rhtmp1326iahfi.apps.googleusercontent.com.json');
+const TOKEN_PATH = path.join(__dirname, '../../../token.json');
 
-// Crea un'istanza del servizio Google Calendar
-const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+// Scopes richiesti per Google Calendar
+const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
-// Genera l'URL per il login Google
-function getAuthUrl() {
-  const scopes = ['https://www.googleapis.com/auth/calendar'];
-  return oauth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: scopes,
-  });
-}
+function authorize() {
+  const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
+  const { client_secret, client_id, redirect_uris } = credentials.installed;
 
-// Riceve il token dopo l'autenticazione
-async function setCredentialsFromCode(code) {
-  const { tokens } = await oauth2Client.getToken(code);
-  oauth2Client.setCredentials(tokens);
-  return tokens;
-}
+  const oAuth2Client = new google.auth.OAuth2(
+    client_id,
+    client_secret,
+    redirect_uris[0]
+  );
 
-// Crea un evento sul calendario di Google
-async function createEvent(eventData) {
-  return await calendar.events.insert({
-    calendarId: 'primary',
-    requestBody: eventData,
-  });
+  // Verifica se il token esiste già
+  if (fs.existsSync(TOKEN_PATH)) {
+    const token = fs.readFileSync(TOKEN_PATH);
+    oAuth2Client.setCredentials(JSON.parse(token));
+    return oAuth2Client;
+  } else {
+    console.error('⚠️ Token mancante. Autentica l’utente prima di proseguire.');
+    return null;
+  }
 }
 
 module.exports = {
-  getAuthUrl,
-  setCredentialsFromCode,
-  createEvent,
+  authorize
 };
